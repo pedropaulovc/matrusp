@@ -7,50 +7,59 @@
  *  var lectureExample = {
  *    code: "SCC0502",
  *    name: "Algoritmos e Estruturas de Dados I",
- *    color: "lightblue",
- *    campus: "TODOS",
- *    selected: 1,
+ *    color: 1,
+ *    campus: "São Carlos",
+ *    selected: true,
  *    classrooms: [{@link Classroom}],
  *    htmlElement: div.lecture-info
  *  }
  *
  * @see UI#createLectureInfo
  */
- // IMPORTANT: the 'ui' variable must be already set up!
 function Lecture(jsonObj, parentPlan) {
   this.parent = parentPlan;
   this.classrooms = new Array();
   // activeClassroom is set after combinations are computed (last thing of creating a plan)
   this.activeClassroom = null;
   if (jsonObj) {
-    this.code = jsonObj.code;
-    this.name = jsonObj.name;
-    this.color = jsonObj.color;
+    this.code = jsonObj.codigo;
+    this.name = jsonObj.nome;
+    this.lectureCredits = jsonObj.creditos_aula;
+    this.workCredits = jsonObj.creditos_trabalho;
+    this.unit = jsonObj.unidade;
+    this.department = jsonObj.departamento;
     this.campus = jsonObj.campus;
+    this.color = jsonObj.color;
     this.selected = jsonObj.selected;
     this.htmlElement = ui.createLectureInfo(this);
     this.htmlLectureCheckbox = this.htmlElement.getElementsByClassName('lecture-info-checkbox')[0];
     this.htmlLectureArrowUp = this.htmlElement.getElementsByClassName('lecture-info-up')[0];
     this.htmlLectureArrowDown = this.htmlElement.getElementsByClassName('lecture-info-down')[0];
     this.htmlClassroomsCheckbox = this.htmlElement.getElementsByClassName('classrooms-header-checkbox')[0];
-    for (var i = 0; i < jsonObj.classrooms.length; i++) {
-      this.classrooms.push(new Classroom(jsonObj.classrooms[i], this));
-    }
+    
+    var linkedT = [];
+    var linkedP = [];
+    jsonObj.turmas.forEach(classroom => {
+      switch(classroom.tipo) {
+        case "Teórica Vinculada":
+          linkedT.push(classroom);
+          break;
+        case "Prática Vinculada":
+          linkedP.push(classroom);
+          break;
+        default:
+          this.classrooms.push(new Classroom(classroom, this));
+          break;
+      }
+    });
+
+    linkedP.forEach(p => {
+      this.classrooms.push(Classroom.fromLinked(linkedT.find(t => t.codigo == p.codigo_teorica),p,this));
+    });
 
     this.appendHTMLChildren();
     this.updateClassroomsCheckbox();
     this.addEventListeners();
-  } else {
-    this.code = null;
-    this.name = null;
-    this.color = null;
-    this.campus = null;
-    this.selected = null;
-    this.htmlElement = null;
-    this.htmlLectureCheckbox = null;
-    this.htmlLectureArrowUp = null;
-    this.htmlLectureArrowDown = null;
-    this.htmlClassroomsCheckbox = null;
   }
 }
 
@@ -170,7 +179,6 @@ Lecture.prototype.delete = function() {
   this.parent.lectures.splice(indexOnParent, 1);
 
   this.parent.update();
-	state.colors[this.color-1] = 0;
 }
 
 /**
@@ -346,7 +354,17 @@ Lecture.prototype.addEventListeners = function() {
   this.htmlLectureArrowDown.addEventListener('click', this.moveDown.bind(this));
 };
 
+Lecture.prototype.safeCopy = function () {
+  var copy = {};
+  copy.codigo = jsonObj.code;
+  copy.nome = jsonObj.name;
+  copy.color = jsonObj.color;
 
+  copy.classrooms = [];
+  for(var classroom in this.classrooms) {
+    copy.classrooms.push(classroom.safeCopy());
+  }
+}
 
 
 

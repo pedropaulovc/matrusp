@@ -5,7 +5,9 @@
  *
  * @example
  *  var planExample = {
- *    combination: 1,
+ *    planId: 0,
+ *    activeCombinationIndex: 0,
+ *    combinations: [{@link Combination}],
  *    lectures: [{@link Lecture}], 
  *    htmlElement: document.createElement('div'), // só existirá com o design finalizado
  *    htmlElementCombinations: [
@@ -13,7 +15,6 @@
  *    ]     
  *  }
  */
- // IMPORTANT: the 'ui' variable must be already set up!
 function Plan(jsonObj, planId, isActivePlan) {
   this.lectures = new Array();
   this.combinations = new Array();
@@ -36,48 +37,59 @@ function Plan(jsonObj, planId, isActivePlan) {
 /**
  *
  **/
- // TODO caso em que basePlan == null e isActivePlan eh valido existe! trata-la!
+// TODO caso em que basePlan == null e isActivePlan eh valido existe! trata-la!
 Plan.prototype.load = function(basePlan, isActivePlan) {
   this.lectures = new Array();
   this.combinations = new Array();
   if (basePlan != null) {
-    for (var i = 0; i < basePlan.lectures.length; i++) {
-      this.lectures.push(new Lecture(basePlan.lectures[i], this));
-      ui.addLecture(this.lectures[i]);
-    }
-    this.activeCombinationIndex = basePlan.activeCombinationIndex;
-    this.computeCombinations();
-    this.activeCombination = this.combinations[this.activeCombinationIndex];
-    if (isActivePlan) {
-      this.setActiveCombination();
-      this.showPlan();
-    }
-  } else {
-    this.activeCombinationIndex = null;
-    this.activeCombination = null;
+    var lecturePromises = basePlan.lectures.map(baseLecture =>
+      matruspDB.lectures.get(baseLecture.code).then(result => {
+        if (result)
+          return result;
+        else
+          return fetch(`db/${baseLecture.code}.json`).then(response => response.json());
+      }).then(lectureInfo => {
+        var lecture = new Lecture(Object.assign({ 'color': baseLecture.color, 'selected': baseLecture.selected }, lectureInfo || {}), this);
+        lecture.classrooms.forEach(classroom => {
+          if (baseLecture.classrooms.indexOf(classroom.code) == -1)
+            classroom.toggleClassroomSelection(true);
+        });
+        ui.addLecture(lecture);
+        return lecture;
+      }));
+    Promise.all(lecturePromises).then(lectures => {
+      this.lectures = lectures;
+      this.activeCombinationIndex = basePlan.activeCombinationIndex;
+      this.computeCombinations();
+      this.activeCombination = this.combinations[this.activeCombinationIndex];
+      if (isActivePlan) {
+        this.setActiveCombination();
+        this.showPlan();
+      }
+    });
   }
 }
 
 Plan.prototype.delete = function() {
-	this.unsetPlan();
-	while (this.lectures.length) {
-		this.lectures[0].delete();
-	}
-	this.removeEventListeners();
+  this.unsetPlan();
+  while (this.lectures.length) {
+    this.lectures[0].delete();
+  }
+  this.removeEventListeners();
   // All htmlElements removed, now remove itself from the plan and
   // update it.
   var indexOnParent = state.plans.indexOf(this);
   state.plans.splice(indexOnParent, 1);
-	// TODO change plans constructor to include this.parent
- }
+  // TODO change plans constructor to include this.parent
+}
 
- Plan.prototype.clear = function() {
+Plan.prototype.clear = function() {
   // commenting this generates bug?
   this.unsetPlan();
   while (this.lectures.length) {
     this.lectures[0].delete();
   }
- }
+}
 /**
  *
  */
@@ -100,10 +112,13 @@ Plan.prototype.update = function(classroomUpdated) {
     // There is an active combination.
     this.activeCombination = this.combinations[this.activeCombinationIndex];
     this.setActiveCombination();
-    this.showPlan();
+    if (this.planId == state.activePlanIndex) this.showPlan();
   } else {
     // If there are no combinations.
     this.activeCombination = null;
+    document.getElementById('lecture-credits').innerHTML = '0';
+    document.getElementById('work-credits').innerHTML = '0';
+
     //document.getElementById('combination-value').innerHTML = '0/0';
   }
   saveStateOnLocalStorage();
@@ -175,7 +190,7 @@ Plan.prototype.setCombination = function(combination) {
  * @param {Lecture} lecture
  */
 Plan.prototype.addLecture = function(lecture) {
-	var newLecture = new Lecture(lecture, this);
+  var newLecture = new Lecture(lecture, this);
   this.lectures.push(newLecture);
   ui.addLecture(newLecture);
   this.update();
@@ -248,7 +263,7 @@ Plan.prototype.computeCombinations = function() {
     if (this.lectures[i].htmlLectureCheckbox.disabled) {
       this.lectures[i].enableCheckbox();
       if (!this.lectures[i].noClassroomsSelected()) {
-        this.lectures[i].lectureSelect(); 
+        this.lectures[i].lectureSelect();
       }
     }
   }
@@ -276,7 +291,7 @@ Plan.prototype.computeCombinations = function() {
  *
  */
 Plan.prototype.testCombination = function(potentialCombination) {
-  for(var i = 0; i < potentialCombination.length; i++) {
+  for (var i = 0; i < potentialCombination.length; i++) {
     var classroom1Index = potentialCombination[i];
     if (classroom1Index == -1) {
       // Lecture isn't selected. Obs.: A combination without any
@@ -287,7 +302,7 @@ Plan.prototype.testCombination = function(potentialCombination) {
     if (!classroom1.selected) {
       return false;
     }
-    for (var j = i+1; j < potentialCombination.length; j++) {
+    for (var j = i + 1; j < potentialCombination.length; j++) {
       var classroom2Index = potentialCombination[j];
       if (classroom2Index == -1) {
         // Lecture isn't selected.
@@ -378,8 +393,8 @@ Plan.prototype.computeCombinationsFromBase = function(combinationBase) {
  * 
  */
 Plan.prototype.setActiveCombination = function() {
-	// if there is an activeCombinationIndex set
-	/*if(this.activeCombinationIndex != null) {
+  // if there is an activeCombinationIndex set
+  /*if(this.activeCombinationIndex != null) {
 		var activeCombination = this.combinations[this.activeCombinationIndex];
 		for (var i = 0; i < activeCombination.lecturesClassroom.length; i++) {
 			var activeClassroom = activeCombination.lecturesClassroom[i];
@@ -394,13 +409,15 @@ Plan.prototype.setActiveCombination = function() {
       lecturesClassrooms[i].showBox();
       lecturesClassrooms[i].parent.activeClassroom = lecturesClassrooms[i];
     }
+    document.getElementById('lecture-credits').innerHTML = this.activeCombination.lectureCredits;
+    document.getElementById('work-credits').innerHTML = this.activeCombination.workCredits;
 
-		//document.getElementById('combination-value').innerHTML = (this.activeCombinationIndex + 1) + '/' + this.combinations.length;
-	} else { 
-    // TODO safely remove?
-		// document.getElementById('combination-value').innerHTML =  '0/0';
-	}
-	saveStateOnLocalStorage();
+    //document.getElementById('combination-value').innerHTML = (this.activeCombinationIndex + 1) + '/' + this.combinations.length;
+  } else {
+    document.getElementById('lecture-credits').innerHTML = '0';
+    document.getElementById('work-credits').innerHTML = '0';
+  }
+  saveStateOnLocalStorage();
 };
 
 /**
@@ -454,7 +471,7 @@ Plan.prototype.unsetPlan = function() {
   if (this.planId == state.activePlanIndex) {
     // TODO separar em ui_plan.js e plan.js. A linha abaixo fica no primeiro arquivo
     this.hidePlan();
-		this.unsetActiveCombination();
+    this.unsetActiveCombination();
   }
 }
 
@@ -469,25 +486,18 @@ Plan.prototype.setPlan = function() {
   }
 
   state.plans[state.activePlanIndex].unsetPlan();
-	this.setActiveCombination();
+  this.setActiveCombination();
   state.activePlanIndex = this.planId;
 
+
+
   ui.scrollActiveCombinationToView();
-
-	for (var i = 0; i < state.colors.length; i++) {
-		state.colors[i] = 0;
-	}
-
-	
-	for (var i = 0; i < this.lectures.length; i++) {
-		state.colors[this.lectures[i].color-1] = 1;
-	}
 
   // TODO this is a hack to update the combination index and total combination number
   // ui below div#lecture-schedule
   if (this.lectures.length == 0) {
     //document.getElementById('combination-value').innerHTML = '0/0';
-		saveStateOnLocalStorage()
+    saveStateOnLocalStorage()
   } else {
     // TODO comentar a linha de baixo, falar com bruno
     this.setActiveCombination();
@@ -499,9 +509,26 @@ Plan.prototype.setPlan = function() {
  *
  **/
 Plan.prototype.copyToPlan = function(receivingPlan) {
+  var planData = {};
+  planData.activeCombinationIndex = this.activeCombinationIndex;
+  planData.lectures = [];
+  this.lectures.forEach(lecture => {
+    var lectureData = {};
+    lectureData.code = lecture.code;
+    lectureData.color = lecture.color;
+    lectureData.selected = lecture.selected;
+    lectureData.classrooms = [];
+
+    lecture.classrooms.forEach(classroom => {
+      if (classroom.selected)
+        lectureData.classrooms.push(classroom.code);
+    });
+
+    planData.lectures.push(lectureData);
+  });
+
   receivingPlan.clear();
-  var isActivePlan = true;
-  receivingPlan.load(this, isActivePlan);
+  receivingPlan.load(planData, true);
   receivingPlan.setPlan();
 }
 
@@ -549,7 +576,7 @@ Plan.prototype.addEventListeners = function() {
   // TODO testar subir um identificador mudando state.plans[i].delete->plan.delete para
   // state.plans[i].delete->plan.clear; com isso não precisa mais do setPlanBoundCallback
   // pode usar direto o setPlan.bind(this); com isso tbm não precisa mais do removeEventListeners
-	this.setPlanBoundCallback = this.setPlan.bind(this);
+  this.setPlanBoundCallback = this.setPlan.bind(this);
   this.html.tab.addEventListener('click', this.otherPlansOptionsClose.bind(this));
   this.html.tabName.addEventListener('click', this.setPlanBoundCallback);
   this.html.tabOptionsArrow.addEventListener('click', this.setPlanBoundCallback);
@@ -568,7 +595,7 @@ Plan.prototype.addEventListeners = function() {
 //TODO move this function to utils when pull changes in git
 
 function saveStateOnLocalStorage() {
-	if (state) {
-		localStorage.setItem('state', JSON.stringify(ui.copyState(state)));
-	}
+  if (state) {
+    localStorage.setItem('state', state.toJSON());
+  }
 }

@@ -6,7 +6,9 @@
  * @example
  *  var combinationExemple = {
  *    parent: {@link Plan},
- *    classrooms: [{@link Classroom}], // classrooms.length === parent.lectures.length
+ *    lecturesClassrooms: [{@link Classroom}], // classrooms.length === parent.lectures.length
+ *    lectureCredits: 0,
+ *    workCredits:0,
  *    htmlElement: div
  *  }
  *
@@ -15,6 +17,8 @@
 function Combination(combinationIndices, plan) {
   this.parent = plan;
   this.lecturesClassroom = new Array();
+  this.lectureCredits = 0;
+  this.workCredits = 0;
 
   for (var i = 0; i < combinationIndices.length; i++) {
     var classroomIndex = combinationIndices[i];
@@ -22,7 +26,10 @@ function Combination(combinationIndices, plan) {
       // Lecture not selected
       continue;
     }
-    this.lecturesClassroom.push(plan.lectures[i].classrooms[classroomIndex]);
+    classroom = plan.lectures[i].classrooms[classroomIndex];
+    this.lecturesClassroom.push(classroom);
+    this.lectureCredits += classroom.parent.lectureCredits;
+    this.workCredits += classroom.parent.workCredits;
   }
 
   Object.defineProperty(this, "htmlElement", {get: function () {
@@ -31,6 +38,9 @@ function Combination(combinationIndices, plan) {
   this.addEventListeners();
 }
 
+/**
+ *
+ */
 Combination.prototype.delete = function() {
   this.htmlElement.parentNode.removeChild(this.htmlElement);
 
@@ -55,14 +65,23 @@ Combination.prototype.getSimilarityScore = function(otherCombination) {
   return sameClassroomsCounter;
 };
 
+/**
+ *
+ */
 Combination.prototype.setHighlight = function() {
   addClass(this.htmlElement, 'combination-highlight');
 };
 
+/**
+ *
+ */
 Combination.prototype.unsetHighlight = function() {
   removeClass(this.htmlElement, 'combination-highlight');
 };
 
+/**
+ *
+ */
 Combination.prototype.setCombination = function() {
   this.parent.setCombination(this);
 };

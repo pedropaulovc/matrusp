@@ -5,20 +5,15 @@
  *
  * @example
  *  var classroomExample = {
- *    classroomCode: "43",
- *    selected: 1,
- *    horas_aula: 0,
- *    vagas_ofertadas: 0,
- *    vagas_ocupadas: 0,
- *    alunos_especiais: 0,
- *    saldo_vagas: 0,
- *    pedidos_sem_vaga: 0,
- *		data_inicio: "31/07/2016",
- *		data_fim: "10/12/2016",
+ *    code: "2018132",
+ *    shortCode: "32",
+ *    selected: true,
+ *	  dateBegin: "31/07/2016",
+ *	  data_fim: "10/12/2016",
+ *    obs: "Extra info goes here"
  *    teachers: [
- *      "First Guy",
- *      "Second Son",
- *      "third Weird"
+ *      "First Teacher",
+ *      "Second Teacher"
  *    ],
  *    schedules: [{@link Schedule}],
  *    htmlElement: div.classroom-info
@@ -26,87 +21,104 @@
  *
  * @see UI#createClassroomInfo
  */
- // IMPORTANT: the 'ui' variable must be already set up!
 function Classroom(jsonObj, parentLecture) {
   this.parent = parentLecture;
   this.teachers = new Array();
   this.schedules = new Array();
+  this.selected = true;
   if (jsonObj) {
-		this.data_inicio = jsonObj.data_inicio;
-		this.data_fim = jsonObj.data_fim;
-    this.classroomCode = new Array(); 
-    this.horas_aula = jsonObj.horas_aula;
-    this.vagas_ocupadas = jsonObj.vagas_ocupadas;
-    this.alunos_especiais = jsonObj.alunos_especiais;
-    this.saldo_vagas = jsonObj.saldo_vagas;
-    this.pedidos_sem_vaga = jsonObj.pedidos_sem_vaga;
-    this.selected = jsonObj.selected;
-    // Array.slice(0) copies the _entire_ array.
-		this.addTeachers(jsonObj.teachers);
-    for (var i = 0; i < jsonObj.schedules.length; i++) {
-      this.schedules.push(new Schedule(jsonObj.schedules[i], this));
+    this.dateBegin = jsonObj.inicio;
+    this.dateEnd = jsonObj.fim;
+    this.code = jsonObj.codigo;
+    this.shortCode = this.code.slice(-2);
+    this.obs = jsonObj.observacoes;
+    if (jsonObj.horario) {
+      this.addTeachers([].concat.apply([], jsonObj.horario.map(x => x.professores)))
+      for (var i = 0; i < jsonObj.horario.length; i++) {
+        this.schedules.push(new Schedule(jsonObj.horario[i], this));
+      }
     }
-		if (jsonObj.classroomCode) {
-			for (var i = 0; i < jsonObj.classroomCode.length; i++) {
-				this.classroomCode.push(jsonObj.classroomCode[i]);
-			}
-		}
     this.htmlElement = ui.createClassroomInfo(this, parentLecture.code);
     if (this.selected) {
       addClass(this.htmlElement, 'classroom-selected');
     }
     this.addEventListeners();
-  } else {
-		this.data_inicio = null; 
-		this.data_fim = null;
-    this.classroomCode = null;
-    this.horas_aula = null;
-    this.vagas_ofertadas = null;
-    this.vagas_ocupadas = null;
-    this.alunos_especiais = null;
-    this.saldo_vagas = null;
-    this.pedidos_sem_vaga = null;
-    this.selected = null;
-    this.htmlElement = null;
   }
 }
 
-Classroom.prototype.addTeachers = function(teachers) {
-	for (var i = 0; i < teachers.length; i++) {
-		if (teachers[i].length > 1) {
-			if (typeof(teachers[i]) == 'object') {
-				var tmp = teachers[i].slice(0);
-				for (var j = 0; j < tmp.length; j++) {
-					this.teachers.push(tmp[j]);
-				}
-			}	else {
-				this.teachers.push(teachers[i]);
-			}
-		} else {
-			var tmp = teachers[i].slice(0);
-			this.teachers.push(tmp[0]);
-		}
-	}
-	this.removeDuplicates(this.teachers);
-}
-
-
-Classroom.prototype.removeDuplicates = function(teachers) {
-	for (var i = 0; i < teachers.length; i++) {
-		for (var j = i+1; j < teachers.length; j++) {
-			if (JSON.stringify(teachers[i]) == JSON.stringify(teachers[j])) {
-				teachers.splice(j,1);
-				j--;
-			}
-		}
-	}
+/**
+ * Creates a new classroom based on theoretical and practical linked classrooms
+ *
+ * @param {jsonT} TheoreticalClassroom The theoretical classroom data
+ * @param {jsonP} PracticalClassroom The practical classroom data
+ * @param {parentLecture} ParentLecture The Lecture which contains these classrooms
+ */
+Classroom.fromLinked = function(jsonT, jsonP, parentLecture) {
+  var classroom = new Classroom(null, parentLecture);
+  classroom.dateBegin = jsonT.inicio;
+  classroom.dateEnd = jsonT.fim;
+  classroom.code = `${jsonT.codigo}+${jsonP.codigo.slice(-2)}`;
+  classroom.shortCode = `${jsonT.codigo.slice(-2)}+${jsonP.codigo.slice(-2)}`;
+  classroom.obs = jsonT.observacoes + '\n' + jsonP.observacoes;
+  if (jsonT.horario) {
+    classroom.addTeachers([].concat.apply([], jsonT.horario.map(x => x.professores)))
+    for (var i = 0; i < jsonT.horario.length; i++) {
+      classroom.schedules.push(new Schedule(jsonT.horario[i], classroom));
+    }
+  }
+  if (jsonP.horario) {
+    classroom.addTeachers([].concat.apply([], jsonP.horario.map(x => x.professores)))
+    for (var i = 0; i < jsonP.horario.length; i++) {
+      classroom.schedules.push(new Schedule(jsonP.horario[i], classroom));
+    }
+  }
+  classroom.htmlElement = ui.createClassroomInfo(classroom, parentLecture.code);
+  if (classroom.selected) {
+    addClass(classroom.htmlElement, 'classroom-selected');
+  }
+  classroom.addEventListeners();
+  return classroom;
 }
 
 /**
  *
  */
-// Doesn't need to remove htmlElement because parent Lecture will
-// remove the entire div.lecture-info
+Classroom.prototype.addTeachers = function(teachers) {
+  for (var i = 0; i < teachers.length; i++) {
+    if (teachers[i].length > 1) {
+      if (typeof(teachers[i]) == 'object') {
+        var tmp = teachers[i].slice(0);
+        for (var j = 0; j < tmp.length; j++) {
+          this.teachers.push(tmp[j]);
+        }
+      } else {
+        this.teachers.push(teachers[i]);
+      }
+    } else {
+      var tmp = teachers[i].slice(0);
+      this.teachers.push(tmp[0]);
+    }
+  }
+  this.removeDuplicates(this.teachers);
+}
+
+/**
+ *
+ */
+Classroom.prototype.removeDuplicates = function(teachers) {
+  for (var i = 0; i < teachers.length; i++) {
+    for (var j = i + 1; j < teachers.length; j++) {
+      if (JSON.stringify(teachers[i]) == JSON.stringify(teachers[j])) {
+        teachers.splice(j, 1);
+        j--;
+      }
+    }
+  }
+}
+
+/**
+ *
+ */
 Classroom.prototype.delete = function() {
   for (var i = 0; i < this.schedules.length; i++) {
     this.schedules[i].delete();

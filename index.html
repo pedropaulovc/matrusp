@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt_BR" manifest="matrusp.appcache">
+<html lang="pt_BR">
 <head>
     <meta charset="UTF-8">
     <!-- If the browser is lower than or equal to IE 9, redirect to the old page.
@@ -16,8 +16,18 @@
     <meta property="og:image" content="http://bcc.ime.usp.br/matrusp/matrusp.jpg" />
     <meta property="og:site_name" content="MatrUSP" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#FBA71C" />
     <title>MatrUSP</title>
     
+    <link rel="icon" type="image/png" href="images/matrusp32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/matrusp16.png">
+    <link rel="icon" type="image/png" sizes="24x24" href="images/matrusp24.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/matrusp32.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="images/matrusp48.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="images/matrusp64.png">
+    <link rel="icon" type="image/png" sizes="128x128" href="images/matrusp128.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="images/matrusp192.png">
+    <link rel="manifest" href="matrusp.webmanifest">
     <link rel="stylesheet" href="styles/css/application.css">
 </head>
 
@@ -37,8 +47,8 @@
     <div><span id="logo">MatrUSP</span><span class="beta-tag">Beta</span></div>
     <div id='save-controller'>
 	<input id='user-identifier' placeholder='Salve seu plano aqui'> 
-	<button onclick='ui.saveStateOnServer(document.getElementById("user-identifier").value, false);'>Salvar</button>
-	<button onclick='ui.loadStateFromServer(document.getElementById("user-identifier").value);'>Carregar</button>
+	<button id='save-button'>Salvar</button>
+	<button id='load-button'>Carregar</button>
     </div>
     <ul id="icons">
 	<li class="icon" id="icalendar" tabindex="0" data-description="Exportar para calendário">
@@ -66,6 +76,11 @@
 	    <img src="images/ic_download.png" alt="">
 	</li>
     </ul>
+    <div id="loading-bar"></div>
+    <div id="msg-banner" class="">
+    	<div id="msg-banner-message"></div>
+    	<button id="msg-banner-close">×</button>
+	</div>
 </header>
     <div id="page-container">
         <div id="main">
@@ -137,11 +152,27 @@
             <div class='flex-spacer'></div>
             <div id="lecture-explorer">
                 <div id="search-and-add">
-                    <input type="text" id="search" placeholder="Digite o código ou nome da matéria">
-                    <!--button id="add-extra-activity" onclick="ui.addLecture(lectureEx, 0);">+</button-->
-                    <div id="search-result-box">
-                        <!-- Dynamically populated -->
+                    <input required type="text" id="search" placeholder="Digite o código ou nome da matéria">
+                    <div id="search-summary-wrapper">
+						<div id="search-options-summary">Buscando em <span class="selected-option">todos os campi</span></div>
+						<button id="search-options-clear" type="button">&#x2715; Limpar</button>
                     </div>
+                    <form id="search-options">
+                    	<label id="campus-select-label" class="select-label"><div>Campus</div>
+                    	<select name="campus" id="search-campus"><option value="">Todos os campi</option></select></label>
+                    	<label id="unit-select-label" class="select-label"><div>Unidade</div>
+                    	<select name="unit" id="search-unit"><option value="">Todas as unidades</option></select></label>
+                    	<label id="department-select-label" class="select-label"><select name="department" id="search-department" disabled><option value="">Todos os departamentos</option></select>
+                    	<div>Departamento</div></label>
+                    	<div id="search-options-timeframes">
+                    		<div>Período</div>
+							<label><input type="checkbox" name="timeframes[]" value="matutino" checked>Matutino</input></label>
+							<label><input type="checkbox" name="timeframes[]" value="vespertino" checked>Vespertino</input></label>
+							<label><input type="checkbox" name="timeframes[]" value="noturno" checked>Noturno</input></label>
+                    	</div>
+                    	<div id="search-options-browser-error" style="display: none;">Algumas opções de busca foram desabilitadas por não terem suporte em seu navegador. <a href="http://outdatedbrowser.com/en">Atualize já.</a></div>
+                    </form>
+				<div id="search-result-box"></div>
                 </div>
                 <div id="accordion-window">
                     <div id="accordion">
@@ -149,35 +180,40 @@
                     </div>
                 </div>
 				<div id="plans">
-                    <div id="plan-0" class="plan">
+                    <div id="plan-0" class="plan plan-active">
                         <div class="plan-tab plan-tab-name">Plano 1</div>
-                        <div class="plan-tab plan-tab-options-arrow"><img src="images/ic_arrow_down.png"/></div>
+                        <div class="plan-tab plan-tab-options-arrow"><img src="images/ic_arrow_down.png"></div>
                         <div class="plan-tab-option"> Limpar </div>
                         <div class="plan-tab-option"> Copiar p/ 2 </div>
                         <div class="plan-tab-option"> Copiar p/ 3 </div>
                     </div>
                     <div id="plan-1" class="plan">
                         <div class="plan-tab plan-tab-name">Plano 2</div>
-                        <div class="plan-tab plan-tab-options-arrow"><img src="images/ic_arrow_down.png"/></div>
+                        <div class="plan-tab plan-tab-options-arrow"><img src="images/ic_arrow_down.png"></div>
                         <div class="plan-tab-option"> Limpar </div>
                         <div class="plan-tab-option"> Copiar p/ 1 </div>
                         <div class="plan-tab-option"> Copiar p/ 3 </div>
                     </div>
                     <div id="plan-2" class="plan">
                         <div class="plan-tab plan-tab-name">Plano 3</div>
-                        <div class="plan-tab plan-tab-options-arrow"><img src="images/ic_arrow_down.png"/></div>
+                        <div class="plan-tab plan-tab-options-arrow"><img src="images/ic_arrow_down.png"></div>
                         <div class="plan-tab-option"> Limpar </div>
                         <div class="plan-tab-option"> Copiar p/ 1 </div>
                         <div class="plan-tab-option"> Copiar p/ 2 </div>
                     </div>
 				</div>
-                <div id="upload-warning">Arquivo da versão antiga é incompatível!</div>
-                <label id="upload-button">
-                    <div id="upload-name"> Upload de Grade </div>
-                    <img src="images/ic_upload.png" />
-                    <input id="upload-input" type="file" accept="application/json">
+				<div id="explorer-footer">
+				    <div id="credits">
+				        <div class="credit-wrapper"><span id="lecture-credits">0</span>Créditos<br />Aula</div>
+				        <div class="credit-wrapper"><span id="work-credits">0</span>Créditos<br />Trabalho</div>
+					</div>
+					<label id="upload-button">
+						<div id="upload-name"> Upload de Grade </div>
+						<img src="images/ic_upload.png">
+						<input id="upload-input" type="file" accept="application/json">
+					</label>
                 </div>
-            </div>
+			</div>
             <footer>
                 <span>Tendo problemas? Utilize a <a href="http://bcc.ime.usp.br/matrusp_v1">versão antiga</a>, ou entre em contato conosco: apoiobcc@linux.ime.usp.br</span>
                 <span>Colabore com o código no <a href="https://github.com/matrusp/matrusp">GitHub</a>!</span>
@@ -185,11 +221,11 @@
             </footer>
         </div>
     </div>
+    <script type="text/javascript" src="js/redirect.js"></script>
     <script type="text/javascript" src="js/polyfill.js" defer></script>
-    <script type="text/javascript" src="js/es6-promise.auto.min.js" defer></script>
+    <script type="text/javascript" src="js/dbhelpers.js" defer></script>
     <script type="text/javascript" src="js/custom_lib.js" defer></script>
     <script type="text/javascript" src="js/ui.js" defer></script>
-    <script type="text/javascript" src="js/database.js" defer></script>
     <script type="text/javascript" src="js/search_box.js" defer></script>
     <script type="text/javascript" src="js/schedule.js" defer></script>
     <script type="text/javascript" src="js/classroom.js" defer></script>
@@ -197,6 +233,7 @@
     <script type="text/javascript" src="js/combination.js" defer></script>
     <script type="text/javascript" src="js/plan.js" defer></script>
     <script type="text/javascript" src="js/state.js" defer></script>
+    <script type="text/javascript" src="js/dexie.min.js"></script>
     <script type="text/javascript" src="js/main.js" defer></script>
     <script type="text/javascript" src="js/icalendar.js" defer></script>
     <script type="text/javascript" src="js/image.js"></script>

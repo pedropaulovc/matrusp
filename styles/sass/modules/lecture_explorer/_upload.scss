@@ -13,13 +13,15 @@
 }
 
 #upload-button {
-  position: absolute;
-  width: 200px;
-  height: 40px;
-  bottom: 0;
-  right: 0;
   border: $border-default;
-  cursor: pointer;
+  height: 40px;
+  width: 220px;
+  align-items: center;
+  display: inline-flex;
+  margin: 12px;
+  flex: 1 1 auto;
+  user-select: none;
+  cursor: default;
 
   &:hover {
     background-color: #ddd;
@@ -36,8 +38,6 @@
   // Text 'Upload' inside the label
   > div,
   > img {
-    @include center-block-vertically();
-    position: absolute;
     text-align: center;
   }
 

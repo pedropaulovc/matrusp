@@ -20,11 +20,13 @@
 // 4. Modules
 @import 'modules/header/_icons.scss',
         'modules/header/_save_and_load_identifier.scss',
+        'modules/header/_banner.scss',
 		'modules/lecture_explorer/_base_lecture_info.scss',
 		'modules/lecture_explorer/_search_and_add.scss',
         'modules/lecture_explorer/_accordion.scss',
         'modules/lecture_explorer/_plan_buttons.scss',
         'modules/lecture_explorer/_upload.scss',
+        'modules/lecture_explorer/_credits.scss',
         'modules/lecture_schedule/_lecture_box.scss',
         'modules/lecture_schedule/_combination_controller.scss',
         'modules/overlay/_drop.scss';
